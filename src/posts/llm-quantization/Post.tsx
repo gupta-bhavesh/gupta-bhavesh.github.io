@@ -8,6 +8,7 @@ import ComparisonTable from '../../components/blog/ComparisonTable';
 import Diagram from '../../components/blog/Diagram';
 import CodeBlock, { Tok } from '../../components/blog/CodeBlock';
 import Improvement from '../../components/blog/Improvement';
+import VisualEmbed from '../../components/blog/VisualEmbed';
 
 export default function LLMQuantizationPost() {
   return (
@@ -154,6 +155,12 @@ E8M0           ─ │ 8 exp │ ─                                        │ 
               precision, FP4 has both range and precision compressed into almost nothing.
             </p>
           </Callout>
+
+          <VisualEmbed
+            to="/visuals/float-anatomy"
+            title="Float Anatomy — interactive"
+            description="All six formats stacked. Drag a value, watch FP32 / FP16 / BF16 / FP8 / FP4 / E8M0 each round it differently. Click any row for full bit layout, max value, and number of distinct slots."
+          />
         </Section>
 
         <Section label="§ 03 — The Core Mechanic" title="Block, Slot, Scale, Dequantize">
@@ -273,6 +280,12 @@ E8M0           ─ │ 8 exp │ ─                                        │ 
               that errors become large enough to compound through long reasoning chains.
             </p>
           </Callout>
+
+          <VisualEmbed
+            to="/visuals/quantization-playground"
+            title="Quantization Playground — interactive"
+            description="Drag a weight value, drop the bit depth from 8 down to 2, and watch the slot ruler thin out as rounding error climbs. Toggle symmetric vs asymmetric to see how the slot range shifts off-zero."
+          />
         </Section>
 
         <Section label="§ 04 — Symmetric vs Asymmetric" title="Do You Need to Store the Min?">
@@ -943,6 +956,12 @@ To recover weight i in sub-block j:
             {'   -6 × 15 =  -90.0    ✗ was -96.0, error 6.0\n'}
             {'    8 × 15 =  120.0    ✗ was 110.0, error 10.0'}
           </CodeBlock>
+
+          <VisualEmbed
+            to="/visuals/mx-vs-nv"
+            title="MXFP8 vs NVFP4 — block by block"
+            description="Edit four weights and watch both formats quantize them side by side. Try the outlier preset to see what one big number does to a small block; try tiny to see NVFP4's 16 slots collapse to zero."
+          />
 
           <Callout label="When the scale is applied" variant="warning">
             <p>
