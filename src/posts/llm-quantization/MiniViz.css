@@ -1,0 +1,374 @@
+.mvz {
+  margin: 20px 0;
+  padding: 16px 18px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+
+.mvz__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mvz__title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mvz__meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.mvz__caption {
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+/* ========== BitStrip ========== */
+
+.mvz--bits .mvz__bits-row {
+  display: flex;
+  gap: 2px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.mvz__bit {
+  flex: 1;
+  min-width: 6px;
+  height: 22px;
+  border-radius: 2px;
+  transition: background 0.5s ease, border-color 0.5s ease, opacity 0.5s ease;
+}
+
+.mvz__bit--s {
+  background: rgba(247, 106, 124, 0.45);
+  border: 1px solid var(--red);
+}
+
+.mvz__bit--e {
+  background: rgba(106, 180, 247, 0.35);
+  border: 1px solid var(--blue);
+}
+
+.mvz__bit--m {
+  background: rgba(74, 222, 170, 0.3);
+  border: 1px solid var(--accent3);
+}
+
+.mvz__bit--empty {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  opacity: 0.4;
+}
+
+.mvz__legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.mvz__lg {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.mvz__lg--s {
+  background: rgba(247, 106, 124, 0.15);
+  color: var(--red);
+}
+
+.mvz__lg--e {
+  background: rgba(106, 180, 247, 0.15);
+  color: var(--blue);
+}
+
+.mvz__lg--m {
+  background: rgba(74, 222, 170, 0.15);
+  color: var(--accent3);
+}
+
+/* ========== Ruler ========== */
+
+.mvz--ruler .mvz__ruler {
+  position: relative;
+  height: 56px;
+  margin: 6px 4px 4px;
+}
+
+.mvz__ruler-track {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--border);
+  transform: translateY(-50%);
+}
+
+.mvz__ruler-tick {
+  position: absolute;
+  top: calc(50% - 6px);
+  width: 1px;
+  height: 12px;
+  background: var(--text3);
+  transform: translateX(-50%);
+  transition: background 0.2s ease, height 0.2s ease, top 0.2s ease;
+}
+
+.mvz__ruler-tick.is-active {
+  background: var(--accent3);
+  height: 18px;
+  top: calc(50% - 9px);
+  width: 2px;
+}
+
+.mvz__ruler-orig {
+  position: absolute;
+  top: 4px;
+  width: 3px;
+  height: 22px;
+  background: var(--blue);
+  border-radius: 2px;
+  transform: translateX(-50%);
+  transition: left 0.05s linear;
+  box-shadow: 0 0 8px rgba(106, 180, 247, 0.6);
+}
+
+.mvz__ruler-snap {
+  position: absolute;
+  bottom: 4px;
+  width: 3px;
+  height: 22px;
+  background: var(--accent4);
+  border-radius: 2px;
+  transform: translateX(-50%);
+  transition: left 0.15s ease;
+  box-shadow: 0 0 8px rgba(247, 160, 106, 0.6);
+}
+
+/* ========== Super-block ========== */
+
+.mvz--super .mvz__super-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.mvz__super-scale {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(124, 106, 247, 0.15);
+  border: 1px solid var(--accent2);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent2);
+}
+
+.mvz__super-scale em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--text3);
+  background: var(--bg3);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.mvz__super-arrows {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  height: 16px;
+  padding: 0 4px;
+}
+
+.mvz__super-arrow {
+  width: 2px;
+  height: 100%;
+  background: var(--accent2);
+  margin: 0 auto;
+  opacity: 0.15;
+  animation: mvzPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes mvzPulse {
+  0%, 100% { opacity: 0.15; }
+  20% { opacity: 1; }
+  40% { opacity: 0.4; }
+}
+
+.mvz__super-subs {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.mvz__super-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 4px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  animation: mvzSubGlow 1.6s ease-in-out infinite;
+}
+
+@keyframes mvzSubGlow {
+  0%, 100% { border-color: var(--border); }
+  20% { border-color: var(--accent3); }
+}
+
+.mvz__super-sub-scale {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-align: center;
+  color: var(--accent3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mvz__super-sub-cells {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+}
+
+.mvz__super-sub-cell {
+  height: 6px;
+  background: var(--bg4);
+  border-radius: 1px;
+}
+
+@media (max-width: 720px) {
+  .mvz__super-arrows,
+  .mvz__super-subs {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .mvz__super-arrow:nth-child(n + 5),
+  .mvz__super-sub:nth-child(n + 5) {
+    display: none;
+  }
+}
+
+/* ========== Pipelines ========== */
+
+.mvz--pipes {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mvz__pipe {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mvz__pipe-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text2);
+}
+
+.mvz__pipe-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+
+.mvz__station {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 5px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  white-space: nowrap;
+  color: var(--text2);
+}
+
+.mvz__station--warn {
+  background: rgba(247, 217, 106, 0.12);
+  border-color: rgba(247, 217, 106, 0.4);
+  color: var(--yellow);
+}
+
+.mvz__station--good {
+  background: rgba(74, 222, 170, 0.12);
+  border-color: rgba(74, 222, 170, 0.4);
+  color: var(--accent3);
+}
+
+.mvz__step {
+  font-family: var(--font-mono);
+  color: var(--text3);
+}
+
+.mvz__pipe-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent2);
+  box-shadow: 0 0 12px var(--accent2);
+  transform: translate(-50%, -50%);
+}
+
+.mvz__pipe-dot--slow {
+  animation: mvzFlow 3.2s linear infinite;
+}
+
+.mvz__pipe-dot--fast {
+  animation: mvzFlow 1.8s linear infinite;
+  background: var(--accent3);
+  box-shadow: 0 0 12px var(--accent3);
+}
+
+@keyframes mvzFlow {
+  0% { left: 0%; }
+  100% { left: 100%; }
+}
+
+@media (max-width: 720px) {
+  .mvz__pipe-track {
+    overflow-x: auto;
+  }
+}

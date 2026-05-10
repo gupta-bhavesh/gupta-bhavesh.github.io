@@ -9,6 +9,7 @@ import Diagram from '../../components/blog/Diagram';
 import CodeBlock, { Tok } from '../../components/blog/CodeBlock';
 import Improvement from '../../components/blog/Improvement';
 import VisualEmbed from '../../components/blog/VisualEmbed';
+import { BitStripMini, RulerSnapMini, SuperBlockMini, PipelinesMini } from './MiniViz';
 
 export default function LLMQuantizationPost() {
   return (
@@ -130,6 +131,8 @@ export default function LLMQuantizationPost() {
             sign bit is implicit in all of these — they all have one.
           </p>
 
+          <BitStripMini />
+
           <Diagram title="Bit layouts of common floating point formats">
             <CodeBlock variant="plain">
               {`FP32 (E8M23)   1 │ 8 exp │ 23 mantissa                       │ 32 bits
@@ -229,6 +232,8 @@ E8M0           ─ │ 8 exp │ ─                                        │ 
             error</strong>. It's bounded by half a step — at most <code>scale / 2</code> per
             weight.
           </p>
+
+          <RulerSnapMini />
 
           <h3>A worked example</h3>
 
@@ -377,6 +382,8 @@ E8M0           ─ │ 8 exp │ ─                                        │ 
           />
 
           <h3>The K-quant super-block trick</h3>
+
+          <SuperBlockMini />
 
           <p>
             Storing a full FP16 scale per 32 weights is wasteful — 16 bits of scale for only
@@ -810,6 +817,8 @@ To recover weight i in sub-block j:
             laptop CPU; <code>nvfp4</code> only works on Blackwell GPUs but runs the matmuls
             at 4-bit speed.
           </p>
+
+          <PipelinesMini />
 
           <Callout label="The lesson" variant="insight">
             <p>
