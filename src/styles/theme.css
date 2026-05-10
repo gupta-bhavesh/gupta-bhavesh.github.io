@@ -1,0 +1,23 @@
+:root {
+  --bg: #0a0a0f;
+  --bg2: #111118;
+  --bg3: #1a1a24;
+  --bg4: #22222f;
+  --border: #2a2a3a;
+  --text: #e8e8f0;
+  --text2: #9898b0;
+  --text3: #5a5a78;
+  --accent: #7c6af7;
+  --accent2: #a594ff;
+  --accent3: #4adeaa;
+  --accent4: #f7a06a;
+  --red: #f76a7c;
+  --blue: #6ab4f7;
+  --yellow: #f7d96a;
+
+  --font-serif: 'Instrument Serif', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Syne', sans-serif;
+
+  --container: 860px;
+}

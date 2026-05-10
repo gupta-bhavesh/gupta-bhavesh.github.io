@@ -1,0 +1,304 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "b. bhavesh gupta" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: b.
+        - generic [ref=e7]: bhavesh gupta
+      - navigation [ref=e8]:
+        - link "Blog" [ref=e9] [cursor=pointer]:
+          - /url: /blog
+        - link "Visuals" [ref=e10] [cursor=pointer]:
+          - /url: /visuals
+        - link "About" [ref=e11] [cursor=pointer]:
+          - /url: /about
+  - main [ref=e12]:
+    - link "← all posts" [ref=e14] [cursor=pointer]:
+      - /url: /blog
+    - generic [ref=e16]:
+      - generic [ref=e17]: Systems · GPUs · LLMs
+      - heading "The Hardware Story Behind LLMs" [level=1] [ref=e18]:
+        - text: The
+        - emphasis [ref=e19]: Hardware Story
+        - text: Behind LLMs
+      - paragraph [ref=e20]: Why GPUs run LLMs and CPUs don't — a ground-up tour of the silicon, the memory hierarchy, and the data movement problem at the heart of every model.
+      - generic [ref=e21]:
+        - generic [ref=e22]: reading · 19 min
+        - generic [ref=e23]: origin · Medium · 2026-05-01
+    - article [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - generic [ref=e27]: § 01 — Why this post
+          - heading "From models down to silicon" [level=2] [ref=e28]
+          - paragraph [ref=e29]:
+            - text: "I started learning LLMs from the top — prompts, context windows, agents — and kept running into the same wall:"
+            - emphasis [ref=e30]: why is this slow, why is it expensive, why can't it run on my laptop
+            - text: . Each answer pointed lower. Inference is a memory problem. Memory is a GPU problem. GPUs make sense only when you understand why CPUs fall short.
+          - paragraph [ref=e31]:
+            - text: "This post is the bottom-up version of that journey. We start with the difference between CPUs and GPUs, walk through the memory tower, and end at the punchline:"
+            - strong [ref=e32]: modern LLM inference is bottlenecked by data movement, not arithmetic
+            - text: . That single sentence explains nearly every optimization in the ecosystem.
+        - generic [ref=e33]:
+          - generic [ref=e34]: § 02 — Two philosophies
+          - heading "CPUs vs GPUs" [level=2] [ref=e35]
+          - paragraph [ref=e36]: CPUs and GPUs are both made of transistors, but they are designed for opposite workloads. A CPU is built to make smart decisions quickly. A GPU is built to do massive amounts of dumb arithmetic in parallel.
+          - heading "The CPU Way" [level=3] [ref=e37]
+          - paragraph [ref=e38]:
+            - text: CPUs have a
+            - strong [ref=e39]: few powerful cores
+            - text: "— usually 8 to 64 — each with deep machinery: branch predictors, out-of-order execution, large multi-level caches. Every core can hold a complex chain of conditionals in its head and follow whichever branch comes up. They're optimised for unpredictable, branchy work where the next instruction depends on the last one's result."
+          - heading "The GPU Way" [level=3] [ref=e40]
+          - paragraph [ref=e41]:
+            - text: GPUs invert this. An NVIDIA RTX 4090 has
+            - strong [ref=e42]: over 16,000 simple CUDA cores
+            - text: ". They share machinery: one branch predictor per group, one instruction stream per group, one register file. Each core individually is dumb. Together they execute the same instruction on different data simultaneously — a model called"
+            - strong [ref=e43]: SIMT (Single Instruction, Multiple Threads)
+            - text: .
+          - generic [ref=e44]:
+            - generic [ref=e45]: The trade
+            - paragraph [ref=e47]: CPUs spend silicon on cleverness. GPUs spend silicon on parallelism. If your work looks like the same operation repeated billions of times — matrix multiplication is the canonical example — GPUs will absolutely demolish CPUs.
+          - table [ref=e49]:
+            - rowgroup [ref=e50]:
+              - row "Property CPU GPU" [ref=e51]:
+                - columnheader "Property" [ref=e52]
+                - columnheader "CPU" [ref=e53]
+                - columnheader "GPU" [ref=e54]
+            - rowgroup [ref=e55]:
+              - row "Cores 8 – 64 powerful 1000s – 16000+ simple" [ref=e56]:
+                - cell "Cores" [ref=e57]
+                - cell "8 – 64 powerful" [ref=e58]
+                - cell "1000s – 16000+ simple" [ref=e59]
+              - row "Model Independent threads SIMT (warps of 32)" [ref=e60]:
+                - cell "Model" [ref=e61]
+                - cell "Independent threads" [ref=e62]
+                - cell "SIMT (warps of 32)" [ref=e63]
+              - row "Optimised for Latency, branches Throughput, parallelism" [ref=e64]:
+                - cell "Optimised for" [ref=e65]
+                - cell "Latency, branches" [ref=e66]
+                - cell "Throughput, parallelism" [ref=e67]
+              - row "Memory bandwidth 50–100 GB/s 500 GB/s – 3 TB/s" [ref=e68]:
+                - cell "Memory bandwidth" [ref=e69]
+                - cell "50–100 GB/s" [ref=e70]
+                - cell "500 GB/s – 3 TB/s" [ref=e71]
+              - row "Branching cost Cheap Expensive (warp divergence)" [ref=e72]:
+                - cell "Branching cost" [ref=e73]
+                - cell "Cheap" [ref=e74]
+                - cell "Expensive (warp divergence)" [ref=e75]
+        - generic [ref=e76]:
+          - generic [ref=e77]: § 03 — Inside a GPU
+          - heading "Warps, SMs, Tensor Cores" [level=2] [ref=e78]
+          - 'heading "Warps: The Lockstep Squad" [level=3] [ref=e79]'
+          - paragraph [ref=e80]:
+            - text: GPUs organise their cores into groups of
+            - strong [ref=e81]: 32 threads called warps
+            - text: . All 32 threads in a warp execute the same instruction at the same time, on different data. This shared instruction stream is what lets the GPU skip the redundant hardware that CPUs need (32 branch predictors per warp would be wasteful when one suffices).
+          - paragraph [ref=e82]:
+            - text: "The catch: when threads in a warp need to take different paths — some take the"
+            - code [ref=e83]: if
+            - text: ", others take the"
+            - code [ref=e84]: else
+            - text: — the hardware must execute both paths sequentially. This is called
+            - strong [ref=e85]: warp divergence
+            - text: and it cuts parallelism in half. It's why "branchy" code on a GPU feels like the GPU got worse, not better.
+          - heading "SMs and Tensor Cores" [level=3] [ref=e86]
+          - paragraph [ref=e87]:
+            - text: Warps live on
+            - strong [ref=e88]: Streaming Multiprocessors (SMs)
+            - text: . An A100 has 108 SMs. Each SM has its own pool of registers, its own scratchpad memory (SRAM), and its own scheduler. Inside each SM live the
+            - strong [ref=e89]: Tensor Cores
+            - text: — specialized hardware that fuses a multiply and an add into a single instruction operating on small matrices. They are the reason matrix multiplication is so fast.
+          - heading "Memory Inside a GPU" [level=3] [ref=e90]
+          - table [ref=e92]:
+            - rowgroup [ref=e93]:
+              - row "Memory Bandwidth Capacity" [ref=e94]:
+                - columnheader "Memory" [ref=e95]
+                - columnheader "Bandwidth" [ref=e96]
+                - columnheader "Capacity" [ref=e97]
+            - rowgroup [ref=e98]:
+              - row "Consumer GPU VRAM (GDDR6X) ~1 TB/s 8 – 24 GB" [ref=e99]:
+                - cell "Consumer GPU VRAM (GDDR6X)" [ref=e100]
+                - cell "~1 TB/s" [ref=e101]
+                - cell "8 – 24 GB" [ref=e102]
+              - row "Data-center GPU VRAM (HBM) 2 – 3 TB/s 40 – 80 GB" [ref=e103]:
+                - cell "Data-center GPU VRAM (HBM)" [ref=e104]
+                - cell "2 – 3 TB/s" [ref=e105]
+                - cell "40 – 80 GB" [ref=e106]
+              - row "SM SRAM (shared / scratchpad) ~19 TB/s ~164 KB per SM" [ref=e107]:
+                - cell "SM SRAM (shared / scratchpad)" [ref=e108]
+                - cell "~19 TB/s" [ref=e109]
+                - cell "~164 KB per SM" [ref=e110]
+              - row "Registers (per thread) Fastest Bytes" [ref=e111]:
+                - cell "Registers (per thread)" [ref=e112]
+                - cell "Fastest" [ref=e113]
+                - cell "Bytes" [ref=e114]
+          - paragraph [ref=e115]:
+            - text: HBM uses 3D stacking — multiple memory dies stacked vertically next to the GPU on the same package — which is what makes those tera-byte-per-second numbers possible. But notice GPU VRAM is optimised for
+            - strong [ref=e116]: throughput
+            - text: not latency. It's slow to fetch one value, fast to fetch a million.
+        - generic [ref=e117]:
+          - generic [ref=e118]: § 04 — Where GPUs lose
+          - heading "GPU Weaknesses" [level=2] [ref=e119]
+          - paragraph [ref=e120]: "GPUs aren't magic. They are bad at exactly the things CPUs are good at:"
+          - list [ref=e121]:
+            - listitem [ref=e122]:
+              - strong [ref=e123]: Branchy code
+              - text: — divergent paths halve effective parallelism
+            - listitem [ref=e124]:
+              - strong [ref=e125]: Sequential dependencies
+              - text: — anything that needs the previous step's result before continuing
+            - listitem [ref=e126]:
+              - strong [ref=e127]: Tiny workloads
+              - text: — kernel launch overhead dominates the work itself
+            - listitem [ref=e128]:
+              - strong [ref=e129]: Irregular memory access
+              - text: — pointer chasing defeats memory coalescing and you pay full latency for every fetch
+          - paragraph [ref=e130]: This is why we don't run operating systems on GPUs. It's also why pre-processing (tokenization, sampling, control flow) still happens on the CPU even when the model is on the GPU.
+        - generic [ref=e131]:
+          - generic [ref=e132]: § 05 — Matrix multiply
+          - heading "The canonical GPU problem" [level=2] [ref=e133]
+          - paragraph [ref=e134]:
+            - text: Matrix multiplication is the operation that makes deep learning interesting and makes GPUs essential. Computing
+            - code [ref=e135]: C = A × B
+            - text: for an N×N matrix requires N² output cells, and each output cell is an independent dot product of one row of A with one column of B.
+          - generic [ref=e136]:
+            - generic [ref=e137]: The parallel decomposition
+            - generic [ref=e139]: C = A × B (each cell is independent) B (cols) ┌──┬──┬──┐ │ │ │ │ └──┴──┴──┘ A (rows) ┌──┐ C │ │ ┌──┬──┬──┐ ├──┤ │ ?│ ?│ ?│ ← N² independent │ │ ├──┼──┼──┤ dot products, └──┘ └──┴──┴──┘ one per thread
+          - paragraph [ref=e140]:
+            - text: On a CPU you'd write three nested loops and distribute the outer one over your 8 cores. On a GPU you launch
+            - strong [ref=e141]: N² threads
+            - text: ", each computing one output cell. Tensor Cores then crunch each dot product as fused multiply-adds. The work scales effortlessly with the size of the GPU."
+          - paragraph [ref=e142]: Every layer of a transformer is a stack of matrix multiplies (Q@Kᵀ, attention@V, the two MLP projections). The whole model is shaped like this on purpose — to look exactly like the workload GPUs are best at.
+        - generic [ref=e143]:
+          - generic [ref=e144]: § 06 — The tower
+          - heading "The Memory Hierarchy" [level=2] [ref=e145]
+          - paragraph [ref=e146]:
+            - text: Performance in modern computing is never about how fast the cores are. It's about how fast you can
+            - emphasis [ref=e147]: feed them
+            - text: ". Memory exists in a tower with a brutal speed-vs-capacity tradeoff:"
+          - complementary [ref=e148]:
+            - generic [ref=e149]:
+              - generic [ref=e150]: Interactive Visual
+              - link "open full screen ↗" [ref=e151] [cursor=pointer]:
+                - /url: /visuals/memory-hierarchy
+            - heading "Memory Hierarchy — animated" [level=4] [ref=e152]
+            - paragraph [ref=e153]: Six-level tower from registers to disk. Click each level to see speed, capacity, and where in an LLM run it gets touched.
+          - table [ref=e155]:
+            - rowgroup [ref=e156]:
+              - row "Memory Speed Capacity Used for" [ref=e157]:
+                - columnheader "Memory" [ref=e158]
+                - columnheader "Speed" [ref=e159]
+                - columnheader "Capacity" [ref=e160]
+                - columnheader "Used for" [ref=e161]
+            - rowgroup [ref=e162]:
+              - row "Registers (per thread) Fastest Bytes Single value in flight" [ref=e163]:
+                - cell "Registers (per thread)" [ref=e164]
+                - cell "Fastest" [ref=e165]
+                - cell "Bytes" [ref=e166]
+                - cell "Single value in flight" [ref=e167]
+              - row "SRAM (per SM) ~19 TB/s KB Tile of activations / weights" [ref=e168]:
+                - cell "SRAM (per SM)" [ref=e169]
+                - cell "~19 TB/s" [ref=e170]
+                - cell "KB" [ref=e171]
+                - cell "Tile of activations / weights" [ref=e172]
+              - row "VRAM (HBM) 2 – 3 TB/s 40 – 80 GB Model weights, KV cache" [ref=e173]:
+                - cell "VRAM (HBM)" [ref=e174]
+                - cell "2 – 3 TB/s" [ref=e175]
+                - cell "40 – 80 GB" [ref=e176]
+                - cell "Model weights, KV cache" [ref=e177]
+              - row "CPU RAM (DRAM) 50 – 100 GB/s 32 – 256 GB Pre/post processing" [ref=e178]:
+                - cell "CPU RAM (DRAM)" [ref=e179]
+                - cell "50 – 100 GB/s" [ref=e180]
+                - cell "32 – 256 GB" [ref=e181]
+                - cell "Pre/post processing" [ref=e182]
+              - row "SSD 1 – 7 GB/s Terabytes Cold model weights" [ref=e183]:
+                - cell "SSD" [ref=e184]
+                - cell "1 – 7 GB/s" [ref=e185]
+                - cell "Terabytes" [ref=e186]
+                - cell "Cold model weights" [ref=e187]
+          - paragraph [ref=e188]: "A useful analogy: registers are your hands, SRAM is your desk, VRAM is a nearby bookshelf, RAM is a bookshelf in another room, and disk is the warehouse downstairs. Every step down the tower is roughly an order of magnitude slower and an order of magnitude bigger."
+          - generic [ref=e189]:
+            - generic [ref=e190]: The optimisation game
+            - paragraph [ref=e192]: The whole game of high-performance computing is to keep your working set as high up the tower as possible for as long as possible. FlashAttention does it inside an attention kernel. vLLM does it across a request batch. Quantization makes the working set smaller so more of it fits.
+        - generic [ref=e193]:
+          - generic [ref=e194]: § 07 — Inference end to end
+          - heading "What happens when you call an LLM" [level=2] [ref=e195]
+          - paragraph [ref=e196]: "With the hardware in mind, here is what actually happens when you send a prompt to a model:"
+          - generic [ref=e197]: "# 1. Cold start (one time) Disk → CPU RAM → GPU VRAM: load 70B × 2 bytes ≈ 140 GB of weights # 2. Per request CPU: tokenize text → list of ints (small, branchy) CPU → GPU: PCIe transfer of int tokens (tiny) GPU: embedding lookup → vectors (memory load) GPU: N transformer layers, each: - attention (Q, K, V, softmax, output) - feed-forward (two matmuls + activation) GPU: final projection → logits over vocabulary GPU: sample next token ↻ KV cache reused so prior tokens not recomputed"
+          - heading "The KV Cache" [level=3] [ref=e198]
+          - paragraph [ref=e199]:
+            - text: For autoregressive generation, attention at step t needs the keys and values of every previous token. Recomputing them would cost O(N²) work per token. Instead the keys and values are
+            - strong [ref=e200]: cached in VRAM
+            - text: "— the famous KV cache. It is why context length is expensive: cache size grows linearly with sequence length and quickly dominates VRAM."
+        - generic [ref=e201]:
+          - generic [ref=e202]: § 08 — The punchline
+          - heading "The Memory-Bandwidth Bottleneck" [level=2] [ref=e203]
+          - paragraph [ref=e204]: "Here is the key fact that changed how I read every LLM systems paper:"
+          - generic [ref=e205]:
+            - generic [ref=e206]: The truth
+            - paragraph [ref=e208]:
+              - strong [ref=e209]: Modern LLM inference is bottlenecked by memory bandwidth, not by compute.
+              - text: Tensor Cores can do far more arithmetic per second than the memory bus can feed them. They sit waiting for weights and KV cache data to arrive from VRAM into SRAM.
+          - paragraph [ref=e210]:
+            - text: For a single decoding step on a 70B model in fp16, the GPU must stream all 140 GB of weights from HBM through SRAM to the cores — every single token. A H100 with 3.35 TB/s of HBM bandwidth gives a hard ceiling of about
+            - strong [ref=e211]: 24 tokens / second per user
+            - text: ", no matter how many flops the chip technically has."
+          - generic [ref=e212]:
+            - generic [ref=e213]:
+              - generic [ref=e214]: 3 TB/s
+              - generic [ref=e215]: A100 / H100 HBM bandwidth
+            - generic [ref=e216]:
+              - generic [ref=e217]: 312 TFLOP/s
+              - generic [ref=e218]: A100 fp16 compute (Tensor Cores)
+            - generic [ref=e219]:
+              - generic [ref=e220]: ~10×
+              - generic [ref=e221]: compute-to-bandwidth gap that LLMs hit
+          - heading "This single fact explains the optimisation ecosystem" [level=3] [ref=e222]
+          - paragraph [ref=e223]: "Once you see the bottleneck is data movement, everything else clicks:"
+          - table [ref=e225]:
+            - rowgroup [ref=e226]:
+              - row "Technique How it helps What it really is" [ref=e227]:
+                - columnheader "Technique" [ref=e228]
+                - columnheader "How it helps" [ref=e229]
+                - columnheader "What it really is" [ref=e230]
+            - rowgroup [ref=e231]:
+              - row "FlashAttention Keeps Q, K, V tiles in SRAM so HBM is touched once Restructures the kernel to move less data" [ref=e232]:
+                - cell "FlashAttention" [ref=e233]
+                - cell "Keeps Q, K, V tiles in SRAM so HBM is touched once" [ref=e234]
+                - cell "Restructures the kernel to move less data" [ref=e235]
+              - row "vLLM / PagedAttention Reduces KV cache fragmentation and waste Stores less in VRAM so more fits" [ref=e236]:
+                - cell "vLLM / PagedAttention" [ref=e237]
+                - cell "Reduces KV cache fragmentation and waste" [ref=e238]
+                - cell "Stores less in VRAM so more fits" [ref=e239]
+              - row "Quantization (int8, int4, fp4) Shrinks weights → fewer bytes streamed Reduces bandwidth required per token" [ref=e240]:
+                - cell "Quantization (int8, int4, fp4)" [ref=e241]
+                - cell "Shrinks weights → fewer bytes streamed" [ref=e242]
+                - cell "Reduces bandwidth required per token" [ref=e243]
+              - row "Speculative decoding Draft + verify many tokens in one pass Amortizes the weight stream over multiple tokens" [ref=e244]:
+                - cell "Speculative decoding" [ref=e245]
+                - cell "Draft + verify many tokens in one pass" [ref=e246]
+                - cell "Amortizes the weight stream over multiple tokens" [ref=e247]
+              - row "llama.cpp CPU-friendly + aggressive quantization Squeezes the working set into CPU RAM bandwidth" [ref=e248]:
+                - cell "llama.cpp" [ref=e249]
+                - cell "CPU-friendly + aggressive quantization" [ref=e250]
+                - cell "Squeezes the working set into CPU RAM bandwidth" [ref=e251]
+          - paragraph [ref=e252]:
+            - text: "All of these answer the same question:"
+            - emphasis [ref=e253]: how do we move less data, or move it less often?
+            - text: Compute is rarely the problem.
+        - generic [ref=e254]:
+          - generic [ref=e255]: § 09 — Closing
+          - heading "LLMs are a data-movement problem" [level=2] [ref=e256]
+          - paragraph [ref=e257]: "If you remember one thing from this post: don't think of an LLM as a math problem. Think of it as a data movement problem. Billions of weights need to flow from VRAM into the cores, and the speed of that flow — not the cleverness of the math — sets the wall."
+          - paragraph [ref=e258]:
+            - text: "Once that frame is in your head, the entire optimization stack reads as one coherent strategy. FlashAttention, paged attention, quantization, speculative decoding, NVLink, HBM3e, ring attention — all of them are different ways of saying:"
+            - emphasis [ref=e259]: move less, or move it once
+            - text: .
+          - paragraph [ref=e260]: That's also why the next post in this series is on FlashAttention specifically — the cleanest example of this idea, applied to the most expensive operation in a transformer.
+  - contentinfo [ref=e261]:
+    - generic [ref=e262]:
+      - paragraph [ref=e263]: © 2026 Bhavesh Gupta · built with React + Vite
+      - generic [ref=e264]:
+        - link "medium" [ref=e265] [cursor=pointer]:
+          - /url: https://medium.com/@bhaveshgupta3421
+        - link "github" [ref=e266] [cursor=pointer]:
+          - /url: https://github.com/

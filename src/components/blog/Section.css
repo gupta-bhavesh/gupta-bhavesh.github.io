@@ -1,0 +1,29 @@
+.blog-section {
+  padding: 80px 0;
+  border-top: 1px solid var(--border);
+}
+
+.blog-section__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.blog-section__title {
+  font-family: var(--font-serif);
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 400;
+  line-height: 1.1;
+  margin-bottom: 32px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .blog-section {
+    padding: 60px 0;
+  }
+}

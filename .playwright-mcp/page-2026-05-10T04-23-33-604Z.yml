@@ -1,0 +1,485 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "b. bhavesh gupta" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: b.
+        - generic [ref=e7]: bhavesh gupta
+      - navigation [ref=e8]:
+        - link "Blog" [ref=e9] [cursor=pointer]:
+          - /url: /blog
+        - link "Visuals" [ref=e10] [cursor=pointer]:
+          - /url: /visuals
+        - link "About" [ref=e11] [cursor=pointer]:
+          - /url: /about
+  - main [ref=e12]:
+    - link "← all posts" [ref=e14] [cursor=pointer]:
+      - /url: /blog
+    - generic [ref=e16]:
+      - generic [ref=e17]: Deep Dive · Transformers · Systems
+      - 'heading "FlashAttention: How Transformers Got Fast" [level=1] [ref=e18]':
+        - text: "FlashAttention:"
+        - emphasis [ref=e19]: How Transformers
+        - text: Got Fast
+      - paragraph [ref=e20]: A ground-up explanation of FlashAttention 1 and 2 — the algorithmic breakthrough that made training and running large language models on long sequences practical.
+      - generic [ref=e21]:
+        - generic [ref=e22]: papers · FA1 (2022) & FA2 (2023)
+        - generic [ref=e23]: by · Dao et al.
+    - article [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - generic [ref=e27]: § 01 — The Problem
+          - heading "Attention is Expensive" [level=2] [ref=e28]
+          - paragraph [ref=e29]: "You already know the core attention formula. For a sequence of tokens, each token computes a weighted sum of all other tokens' values, where the weights come from how much that token \"attends\" to each other token:"
+          - generic [ref=e30]:
+            - text: Attention(Q, K, V) = softmax( QK
+            - superscript [ref=e31]: T
+            - text: / √d
+            - subscript [ref=e32]: k
+            - text: ) · V
+          - paragraph [ref=e33]:
+            - text: For a sequence of length
+            - strong [ref=e34]: "N"
+            - text: ", the matrix"
+            - code [ref=e35]: QKᵀ
+            - text: has shape
+            - strong [ref=e36]: N × N
+            - text: . This matrix needs to exist somewhere in memory. And that somewhere is the GPU's main memory — called
+            - strong [ref=e37]: HBM (High Bandwidth Memory)
+            - text: .
+          - paragraph [ref=e38]: "The numbers get scary fast:"
+          - generic [ref=e39]:
+            - generic [ref=e40]:
+              - generic [ref=e41]: 64MB
+              - generic [ref=e42]:
+                - text: attention matrix per head
+                - text: at N = 4096, fp16
+            - generic [ref=e43]:
+              - generic [ref=e44]: O(N²)
+              - generic [ref=e45]:
+                - text: memory complexity
+                - text: of standard attention
+            - generic [ref=e46]:
+              - generic [ref=e47]: O(N²)
+              - generic [ref=e48]:
+                - text: time complexity
+                - text: of standard attention
+          - paragraph [ref=e49]: For a model with 32 heads and 96 layers at N = 8192 tokens, the attention matrices alone consume hundreds of gigabytes. Long context windows aren't just slow — they're physically impossible on current hardware with naive attention.
+          - paragraph [ref=e50]:
+            - text: But there's a deeper problem than just memory size. It's about
+            - emphasis [ref=e51]: where
+            - text: the computation happens.
+        - generic [ref=e52]:
+          - generic [ref=e53]: § 02 — Hardware
+          - heading "The GPU Memory Hierarchy" [level=2] [ref=e54]
+          - paragraph [ref=e55]: "Modern GPUs have two distinct levels of memory, and the difference between them is what FlashAttention exploits:"
+          - generic [ref=e56]:
+            - generic [ref=e57]: A100 GPU Memory Hierarchy
+            - generic [ref=e59]:
+              - generic [ref=e60]: SRAM (on-chip, inside each SM)
+              - text: "Size : ~164 KB per SM (~20 MB total across all SMs) Speed : ~19 TB/s Think : kitchen counter — right there, instantly accessible"
+              - generic [ref=e61]: HBM (off-chip, "GPU RAM")
+              - text: "Size : 40–80 GB Speed : ~2 TB/s Think : refrigerator — large but you have to walk to it"
+          - paragraph [ref=e62]:
+            - text: SRAM is roughly
+            - strong [ref=e63]: 10× faster
+            - text: than HBM but tiny. Every time the GPU needs data that's in HBM, it must fetch it across a slow bus. Standard attention reads and writes the N×N attention matrix to HBM
+            - strong [ref=e64]: multiple times
+            - text: — once to compute QKᵀ, once to apply softmax, once to multiply by V.
+          - paragraph [ref=e65]:
+            - text: This back-and-forth is the bottleneck. The GPU's compute units (Tensor Cores, capable of 312 TFLOP/s on an A100) sit idle waiting for data to arrive from HBM. The operation is
+            - strong [ref=e66]: memory-bandwidth bound
+            - text: ", not compute-bound."
+          - generic [ref=e67]:
+            - generic [ref=e68]: Core Insight
+            - paragraph [ref=e70]: The goal of FlashAttention is not to reduce the number of FLOPs — it's to eliminate the slow HBM round trips. Keep everything in fast SRAM, write to HBM only once at the end.
+          - complementary [ref=e71]:
+            - generic [ref=e72]:
+              - generic [ref=e73]: Interactive Visual
+              - link "open full screen ↗" [ref=e74] [cursor=pointer]:
+                - /url: /visuals/memory-hierarchy
+            - heading "GPU Memory Hierarchy — animated" [level=4] [ref=e75]
+            - paragraph [ref=e76]: Watch data move between HBM and SRAM. Toggle between standard attention and FlashAttention to see how the round trips collapse.
+          - heading "GPU Execution Model (Quick Glossary)" [level=3] [ref=e77]
+          - paragraph [ref=e78]: "Understanding FlashAttention requires knowing a few GPU terms:"
+          - table [ref=e80]:
+            - rowgroup [ref=e81]:
+              - row "Term What it is" [ref=e82]:
+                - columnheader "Term" [ref=e83]
+                - columnheader "What it is" [ref=e84]
+            - rowgroup [ref=e85]:
+              - row "SM (Streaming Multiprocessor) A mini-processor unit. An A100 has 108 SMs, each with its own 164 KB SRAM and thousands of threads." [ref=e86]:
+                - cell "SM (Streaming Multiprocessor)" [ref=e87]
+                - cell "A mini-processor unit. An A100 has 108 SMs, each with its own 164 KB SRAM and thousands of threads." [ref=e88]
+              - row "Thread Block A group of threads assigned to one SM. The programmer launches thread blocks; the GPU distributes them across SMs automatically." [ref=e89]:
+                - cell "Thread Block" [ref=e90]
+                - cell "A group of threads assigned to one SM. The programmer launches thread blocks; the GPU distributes them across SMs automatically." [ref=e91]
+              - row "Warp 32 threads that execute the same instruction simultaneously on different data. The smallest unit of execution." [ref=e92]:
+                - cell "Warp" [ref=e93]
+                - cell "32 threads that execute the same instruction simultaneously on different data. The smallest unit of execution." [ref=e94]
+              - row "Tensor Core Specialized hardware for matrix multiply-accumulate. Extremely fast. Only does matmuls." [ref=e95]:
+                - cell "Tensor Core" [ref=e96]
+                - cell "Specialized hardware for matrix multiply-accumulate. Extremely fast. Only does matmuls." [ref=e97]
+              - row "CUDA Core General purpose. Handles everything else — exponentials, comparisons, reductions. Much slower than Tensor Cores." [ref=e98]:
+                - cell "CUDA Core" [ref=e99]
+                - cell "General purpose. Handles everything else — exponentials, comparisons, reductions. Much slower than Tensor Cores." [ref=e100]
+              - row "Kernel A GPU program. FlashAttention replaces several standard kernels with one fused kernel that keeps everything in SRAM." [ref=e101]:
+                - cell "Kernel" [ref=e102]
+                - cell "A GPU program. FlashAttention replaces several standard kernels with one fused kernel that keeps everything in SRAM." [ref=e103]
+          - paragraph [ref=e104]:
+            - text: "The implication:"
+            - strong [ref=e105]: softmax involves exponentials and reductions — these run on slow CUDA Cores
+            - text: . Every cycle spent on softmax overhead is a cycle not spent on fast matmuls on Tensor Cores. Minimizing softmax overhead is a recurring theme in FlashAttention.
+        - generic [ref=e106]:
+          - generic [ref=e107]: § 03 — The Math
+          - 'heading "Online Softmax: The Key Algorithm" [level=2] [ref=e108]'
+          - paragraph [ref=e109]:
+            - text: The challenge with tiling attention is that
+            - strong [ref=e110]: softmax is a global operation
+            - text: ". To compute the softmax of a row, you need the entire row to find the denominator:"
+          - generic [ref=e111]:
+            - text: softmax(x
+            - subscript [ref=e112]: i
+            - text: ) = e
+            - superscript [ref=e113]:
+              - text: x
+              - subscript [ref=e114]: i
+            - text: / Σ
+            - subscript [ref=e115]: j
+            - text: e
+            - superscript [ref=e116]:
+              - text: x
+              - subscript [ref=e117]: j
+          - paragraph [ref=e118]: You cannot compute this tile by tile naively — you don't know the denominator until you've seen every element in the row. This is what makes tiling attention seem impossible at first.
+          - heading "Numerical Stability First" [level=3] [ref=e119]
+          - paragraph [ref=e120]:
+            - text: In practice, raw softmax overflows because e
+            - superscript [ref=e121]: x
+            - text: "explodes for large x. The standard fix subtracts the row maximum first:"
+          - generic [ref=e122]:
+            - text: softmax(x
+            - subscript [ref=e123]: i
+            - text: ) = e
+            - superscript [ref=e124]:
+              - text: (x
+              - subscript [ref=e125]: i
+              - text: − m)
+            - text: / Σ
+            - subscript [ref=e126]: j
+            - text: e
+            - superscript [ref=e127]:
+              - text: (x
+              - subscript [ref=e128]: j
+              - text: − m)
+          - paragraph [ref=e129]:
+            - text: where
+            - strong [ref=e130]:
+              - text: m = max
+              - subscript [ref=e131]: j
+              - text: (x
+              - subscript [ref=e132]: j
+              - text: )
+            - text: . This is mathematically identical — the e
+            - superscript [ref=e133]: −m
+            - text: cancels top and bottom — but stays numerically safe. FlashAttention builds on this.
+          - heading "Incremental Softmax Across Tiles" [level=3] [ref=e134]
+          - paragraph [ref=e135]:
+            - text: "The key insight: you can compute softmax"
+            - emphasis [ref=e136]: incrementally
+            - text: if you maintain two running scalars as you see new tiles.
+          - paragraph [ref=e137]: "Suppose you've seen tiles 1 through j−1 and now tile j arrives. You maintain:"
+          - list [ref=e138]:
+            - listitem [ref=e139]:
+              - strong [ref=e140]: m
+              - text: — the running maximum of all scores seen so far
+            - listitem [ref=e141]:
+              - strong [ref=e142]: ℓ
+              - text: — the running sum of exp scores (the softmax denominator)
+            - listitem [ref=e143]:
+              - strong [ref=e144]: O
+              - text: — the running output accumulator
+          - paragraph [ref=e145]:
+            - text: When tile j arrives with new scores S
+            - subscript [ref=e146]: j
+            - text: ":"
+          - generic [ref=e147]: "# 1. Update running max m_new = max(m_old, rowmax(S_j)) # 2. Correction factor — rescales old values to match new max α = exp(m_old − m_new) # 3. Update denominator ℓ_new = α × ℓ_old + rowsum(exp(S_j − m_new)) # 4. Update output accumulator O_new = α × O_old + exp(S_j − m_new) @ V_j # 5. Carry forward m = m_new, ℓ = ℓ_new, O = O_new"
+          - paragraph [ref=e148]:
+            - text: The correction factor
+            - strong [ref=e149]:
+              - text: α = exp(m
+              - subscript [ref=e150]: old
+              - text: − m
+              - subscript [ref=e151]: new
+              - text: )
+            - text: is the crucial piece. It rescales the old sum and old output to be consistent with the newly updated maximum. After the final tile, you divide O by ℓ to normalize.
+          - generic [ref=e152]:
+            - generic [ref=e153]: Result
+            - paragraph [ref=e155]: "You get exact softmax without ever needing the full row at once. The only state you carry between tiles is three small values: m (scalar), ℓ (scalar), and O (one output row). No N×N matrix required."
+        - generic [ref=e156]:
+          - generic [ref=e157]: § 04 — FlashAttention 1
+          - 'heading "FlashAttention 1: Tiling Attention" [level=2] [ref=e158]':
+            - text: "FlashAttention 1:"
+            - text: Tiling Attention
+          - paragraph [ref=e159]: FlashAttention 1 (Dao et al., 2022) combines the online softmax algorithm with a tiled computation strategy to compute exact attention without ever materializing the N×N matrix in HBM.
+          - heading "Tiling the Matrices" [level=3] [ref=e160]
+          - paragraph [ref=e161]:
+            - text: Q, K, V each have shape
+            - strong [ref=e162]: "[N × d]"
+            - text: "where N is sequence length and d is head dimension. FlashAttention slices them into horizontal strips — chunks of rows — that fit in SRAM:"
+          - generic [ref=e163]: "# Example: N=1024, d=128, block size Br=Bc=64 Q [1024 × 128] K [1024 × 128] V [1024 × 128] ┌────────────┐ ┌────────────┐ ┌────────────┐ │ Q₁ [64×128]│ │ K₁ [64×128]│ │ V₁ [64×128]│ ├────────────┤ ├────────────┤ ├────────────┤ │ Q₂ [64×128]│ │ K₂ [64×128]│ │ V₂ [64×128]│ ├────────────┤ ├────────────┤ ├────────────┤ │ ... │ │ ... │ │ ... │ └────────────┘ └────────────┘ └────────────┘ 16 blocks 16 blocks 16 blocks"
+          - paragraph [ref=e164]:
+            - text: Block sizes B
+            - subscript [ref=e165]: r
+            - text: and B
+            - subscript [ref=e166]: c
+            - text: "are chosen so that one Q block + one K block + one V block + one O block all fit within a single SM's 164 KB SRAM. For the example above:"
+          - generic [ref=e167]: "# SRAM usage per tile (fp16 = 2 bytes per number) Q block : 64 × 128 × 2 = 16 KB K block : 64 × 128 × 2 = 16 KB V block : 64 × 128 × 2 = 16 KB O block : 64 × 128 × 2 = 16 KB S tile : 64 × 64 × 2 = 8 KB (temporary scores) ───────────────────────────── Total : 72 KB ✓ fits in 164 KB"
+          - complementary [ref=e168]:
+            - generic [ref=e169]:
+              - generic [ref=e170]: Interactive Visual
+              - link "open full screen ↗" [ref=e171] [cursor=pointer]:
+                - /url: /visuals/attention-tiling
+            - heading "Attention Tiling — interactive" [level=4] [ref=e172]
+            - paragraph [ref=e173]: Step through how FA1 sweeps tiles across Q, K, V. Adjust block size and sequence length, watch the running m, ℓ, O state update tile by tile.
+          - heading "The FA1 Forward Pass Algorithm" [level=3] [ref=e174]
+          - paragraph [ref=e175]: "FA1's loop iterates with K,V as the outer loop and Q as the inner loop:"
+          - generic [ref=e176]: "for each K_j, V_j block (outer loop): # iterate K,V Load K_j, V_j into SRAM for each Q_i block (inner loop): # iterate Q Load Q_i into SRAM S_j = Q_i @ K_jᵀ / sqrt(d) # scores [Br × Bc] m_new = max(m_i, rowmax(S_j)) ℓ_new = exp(m_i − m_new) × ℓ_i + rowsum(exp(S_j − m_new)) O_i = exp(m_i − m_new) × O_i + exp(S_j − m_new) @ V_j Write updated m_i, ℓ_i, O_i back to HBM final: O_i = O_i / ℓ_i # normalize"
+          - heading "What FA1 Achieves" [level=3] [ref=e177]
+          - table [ref=e179]:
+            - rowgroup [ref=e180]:
+              - row "Metric Standard Attention FA1" [ref=e181]:
+                - columnheader "Metric" [ref=e182]
+                - columnheader "Standard Attention" [ref=e183]
+                - columnheader "FA1" [ref=e184]
+            - rowgroup [ref=e185]:
+              - row "Memory complexity O(N²) O(N)" [ref=e186]:
+                - cell "Memory complexity" [ref=e187]
+                - cell "O(N²)" [ref=e188]
+                - cell "O(N)" [ref=e189]
+              - row "HBM reads/writes O(N²) O(N² / M) where M = SRAM size" [ref=e190]:
+                - cell "HBM reads/writes" [ref=e191]
+                - cell "O(N²)" [ref=e192]
+                - cell "O(N² / M) where M = SRAM size" [ref=e193]
+              - row "Exact result Yes Yes — not an approximation" [ref=e194]:
+                - cell "Exact result" [ref=e195]
+                - cell "Yes" [ref=e196]
+                - cell "Yes — not an approximation" [ref=e197]
+              - row "Speedup — 2–4× over standard attention" [ref=e198]:
+                - cell "Speedup" [ref=e199]
+                - cell "—" [ref=e200]
+                - cell "2–4× over standard attention" [ref=e201]
+              - row "GPU utilization ~20% ~25–40%" [ref=e202]:
+                - cell "GPU utilization" [ref=e203]
+                - cell "~20%" [ref=e204]
+                - cell "~25–40%" [ref=e205]
+          - generic [ref=e206]:
+            - generic [ref=e207]: FA1's Contribution
+            - paragraph [ref=e209]: FA1 proved that exact attention can be computed without the N×N matrix ever existing in memory. This was the foundational insight. But profiling showed GPUs were still only at 25–40% utilization. The memory problem was solved — but the computation was still inefficient.
+        - generic [ref=e210]:
+          - generic [ref=e211]: § 05 — FlashAttention 2
+          - 'heading "FlashAttention 2: GPU-Optimal Attention" [level=2] [ref=e212]':
+            - text: "FlashAttention 2:"
+            - text: GPU-Optimal Attention
+          - paragraph [ref=e213]:
+            - text: FlashAttention 2 (Dao, 2023) keeps the same online softmax tiling from FA1 but fundamentally restructures
+            - emphasis [ref=e214]: how
+            - text: that computation maps onto GPU hardware. Three specific inefficiencies in FA1 are identified and fixed.
+          - generic [ref=e215]:
+            - generic [ref=e216]: Improvement 01
+            - generic [ref=e217]: Swap the Loop Order — Outer Q, Inner K,V
+            - generic [ref=e218]:
+              - paragraph [ref=e219]:
+                - text: In FA1, the outer loop iterates over K,V blocks and the inner loop over Q blocks. This means for each K,V block,
+                - emphasis [ref=e220]: every
+                - text: Q block must be loaded from HBM, used, and written back. A Q block with N=1024 and 16 K,V blocks gets loaded from HBM 16 times.
+              - paragraph [ref=e221]: "FA2 flips the loops: outer over Q, inner over K,V."
+              - generic [ref=e222]: "for each Q_i block (outer): # FA2: Q is fixed in outer loop Load Q_i into SRAM — stays here for each K_j, V_j block (inner): # K,V cycle in and out Load K_j, V_j into SRAM Update m, ℓ, O in SRAM # all state stays in SRAM Discard K_j, V_j Write final O_i to HBM once # one write at the very end"
+              - paragraph [ref=e223]: Now Q is loaded once per block. Its running state (m, ℓ, O) stays warm in SRAM throughout the entire inner loop — never flushed to HBM. K and V cycle in and out cheaply since they carry no accumulated state.
+              - generic [ref=e224]: "# HBM reads for Q blocks: FA1: 16 Q blocks × 16 K iterations = 256 reads FA2: 16 Q blocks × 1 (loaded once) = 16 reads ← 16× fewer"
+          - generic [ref=e225]:
+            - generic [ref=e226]: Improvement 02
+            - generic [ref=e227]: Parallelize Over Sequence Length
+            - generic [ref=e228]:
+              - paragraph [ref=e229]: FA1 launched one thread block per (batch item, attention head). So total parallel work = batch size × number of heads. During inference with batch=1 and 8 heads, only 8 SMs work out of 108 — 93% of the GPU sits idle.
+              - paragraph [ref=e230]:
+                - text: "FA2 adds a third dimension: it launches one thread block per (batch item, head,"
+                - strong [ref=e231]: Q block
+                - text: ).
+              - generic [ref=e232]: "# Parallel thread blocks: FA1: batch × heads = 1 × 8 = 8 blocks (8 SMs busy) FA2: batch × heads × Qblocks = 1 × 8 × 16 = 128 blocks (all 108 SMs busy)"
+              - paragraph [ref=e233]: This is safe because different Q blocks produce completely independent output rows — they all read K,V (read-only, no conflicts) but write to entirely different parts of the output matrix O. No coordination needed between SMs.
+              - paragraph [ref=e234]: Critically, this scales with sequence length. As context windows grow from 2k to 128k tokens, FA2's utilization stays high. FA1's utilization was unchanged regardless of sequence length.
+          - generic [ref=e235]:
+            - generic [ref=e236]: Improvement 03
+            - generic [ref=e237]: Warp-Level Independence — No Sync Barriers
+            - generic [ref=e238]:
+              - paragraph [ref=e239]: "Inside a single SM, work is divided among warps (groups of 32 threads). FA1 assigned different warps to different K,V blocks:"
+              - generic [ref=e240]: "# FA1: warps split over K,V (causes sync) Warp 1 → computes scores from K₁ ──┐ Warp 2 → computes scores from K₂ ──┼──► must combine for softmax Warp 3 → computes scores from K₃ ──┘ SYNC BARRIER — all wait # FA2: warps split over Q rows (no sync needed) Warp 1 → rows 1–16 of Q block → sweeps all K,V independently Warp 2 → rows 17–32 of Q block → sweeps all K,V independently Warp 3 → rows 33–48 of Q block → sweeps all K,V independently Warp 4 → rows 49–64 of Q block → sweeps all K,V independently"
+              - paragraph [ref=e241]: In FA2, each warp maintains its own private m, ℓ, O for its rows. It never needs any other warp's values. No sync required.
+              - paragraph [ref=e242]:
+                - text: "Why does sync hurt so much? GPUs hide memory latency by switching between warps — when one warp waits for data, another runs. A sync barrier kills this:"
+                - emphasis [ref=e243]: all
+                - text: warps must freeze simultaneously. The SM has nothing to run, Tensor Cores go idle, and the GPU wastes its 312 TFLOP/s capacity.
+          - heading "The FA2 Forward Pass" [level=3] [ref=e244]
+          - paragraph [ref=e245]: "All three improvements combine into this loop structure:"
+          - generic [ref=e246]: "# One thread block per (batch, head, Q_i block) # Each thread block runs on one SM # Warps within SM handle different row slices of Q_i Load Q_i block into SRAM # once, stays here Initialize O = 0, ℓ = 0, m = −∞ # running state in SRAM for j = 1 to T_c: # iterate over all K,V blocks Load K_j, V_j into SRAM S_j = Q_i @ K_jᵀ / sqrt(d) # [Br × Bc] — Tensor Cores m_new = max(m, rowmax(S_j)) # update running max P_j = exp(S_j − m_new) # unnormalized weights ℓ_new = exp(m − m_new) × ℓ + rowsum(P_j) O = exp(m − m_new) × O + P_j @ V_j m = m_new, ℓ = ℓ_new # carry state forward in SRAM O_final = O / ℓ # normalize Write O_final to HBM # one write to slow memory"
+          - heading "Results" [level=3] [ref=e247]
+          - generic [ref=e248]:
+            - generic [ref=e249]:
+              - generic [ref=e250]: 2×
+              - generic [ref=e251]: faster than FA1
+            - generic [ref=e252]:
+              - generic [ref=e253]: 73%
+              - generic [ref=e254]:
+                - text: peak GPU utilization
+                - text: (up from ~35%)
+            - generic [ref=e255]:
+              - generic [ref=e256]: 9×
+              - generic [ref=e257]:
+                - text: faster than standard
+                - text: attention (PyTorch)
+        - generic [ref=e258]:
+          - generic [ref=e259]: § 06 — Causal Masking
+          - heading "Causal Masking in FA2" [level=2] [ref=e260]
+          - paragraph [ref=e261]: "Autoregressive models like GPT enforce causality: token i can only attend to tokens 1 through i — not future tokens. This is done by masking the upper triangle of the attention score matrix to −∞ before softmax, so those positions contribute zero after exponentiation."
+          - generic [ref=e262]: "# Causal mask on score matrix S [N×N]: K₁ K₂ K₃ K₄ Q₁ [ keep mask mask mask ] Q₂ [ keep keep mask mask ] Q₃ [ keep keep keep mask ] Q₄ [ keep keep keep keep ]"
+          - paragraph [ref=e263]: "FA2 handles masking at the tile level, classifying each tile into one of three categories:"
+          - table [ref=e265]:
+            - rowgroup [ref=e266]:
+              - row "Tile Type Location FA2 Action Cost" [ref=e267]:
+                - columnheader "Tile Type" [ref=e268]
+                - columnheader "Location" [ref=e269]
+                - columnheader "FA2 Action" [ref=e270]
+                - columnheader "Cost" [ref=e271]
+            - rowgroup [ref=e272]:
+              - row "Keep Below the diagonal Process normally Full" [ref=e273]:
+                - cell "Keep" [ref=e274]
+                - cell "Below the diagonal" [ref=e275]
+                - cell "Process normally" [ref=e276]
+                - cell "Full" [ref=e277]
+              - row "Masked Above the diagonal Skip entirely Zero" [ref=e278]:
+                - cell "Masked" [ref=e279]
+                - cell "Above the diagonal" [ref=e280]
+                - cell "Skip entirely" [ref=e281]
+                - cell "Zero" [ref=e282]
+              - row "Partial On the diagonal Apply element-wise mask Small extra" [ref=e283]:
+                - cell "Partial" [ref=e284]
+                - cell "On the diagonal" [ref=e285]
+                - cell "Apply element-wise mask" [ref=e286]
+                - cell "Small extra" [ref=e287]
+          - paragraph [ref=e288]:
+            - text: The masked tiles — roughly half of all tiles — are
+            - strong [ref=e289]: skipped completely
+            - text: . No K,V loaded from HBM, no matmul, no softmax update. For a model with N=1024 and block size 64, this eliminates ~112 of 256 tiles. Causal attention with FA2 is approximately
+            - strong [ref=e290]: 2× faster
+            - text: than non-causal FA2 as a result.
+          - paragraph [ref=e291]: The diagonal tiles require element-wise masking (set position (i,j) to −∞ if key position j > query position i), but this is cheap — a single comparison on a 64×64 tile, not the full N×N matrix.
+        - generic [ref=e292]:
+          - generic [ref=e293]: § 07 — Backward Pass
+          - 'heading "Backward Pass: Recomputation" [level=2] [ref=e294]':
+            - text: "Backward Pass:"
+            - text: Recomputation
+          - paragraph [ref=e295]: Training requires backpropagation — computing gradients of the loss with respect to Q, K, V. Standard attention saves the full N×N attention probability matrix P during the forward pass and reads it back during backprop to compute gradients.
+          - paragraph [ref=e296]: FA2 never stores P — it's discarded after each tile. So how does backprop work?
+          - 'heading "The Solution: Recompute on the Fly" [level=3] [ref=e297]'
+          - paragraph [ref=e298]: "FA2 saves only the minimal state needed after the forward pass:"
+          - generic [ref=e299]: "# FA2 saves after forward pass: Q, K, V # the inputs (needed anyway) O # the output m # running max per row — one scalar per token ℓ # running sum per row — one scalar per token # NOT saved: P # the N×N attention matrix — thrown away"
+          - paragraph [ref=e300]:
+            - text: During the backward pass, FA2 recomputes the attention tiles P
+            - subscript [ref=e301]: j
+            - text: on the fly — running the same tiling algorithm from the forward pass — and immediately uses them to compute gradients before discarding again.
+          - heading "Is Recomputation Worth It?" [level=3] [ref=e302]
+          - paragraph [ref=e303]: Intuition says extra computation must be slower. But the bottleneck is memory bandwidth, not compute. Recomputing P tiles in SRAM using fast Tensor Core matmuls is much cheaper than loading a huge P matrix from slow HBM.
+          - generic [ref=e304]: "# Recomputing one tile P_j [64×64]: = one matmul: Q_block @ K_blockᵀ = 64 × 64 × 128 × 2 FLOPs = ~1M FLOPs → microseconds on Tensor Cores ✓ fast # Loading full P [N×N] from HBM (N=4096): = 4096 × 4096 × 2 bytes = 32 MB read from HBM → bottlenecked by ~2 TB/s bandwidth ✗ slow"
+          - heading "The Memory Saving is What Makes Long Context Possible" [level=3] [ref=e305]
+          - generic [ref=e306]: "# Standard attention memory during training (GPT-4 scale estimate): P matrix per layer per head = N² × 2 bytes N=8192, 32 heads, 96 layers: = 8192² × 2 × 32 × 96 ≈ 412 GB ← physically impossible # FA2 memory during training: Saves only m, ℓ per token = 2 × N × 4 bytes N=8192, 32 heads, 96 layers: = 2 × 8192 × 4 × 32 × 96 ≈ 200 MB ← trivial"
+          - generic [ref=e307]:
+            - generic [ref=e308]: Why This Matters
+            - paragraph [ref=e310]: FA2's recomputation trick is what makes training on 32k, 128k, and million-token context windows physically feasible. Without it, the memory requirements for storing attention matrices across all heads and layers exceed the capacity of any current GPU.
+        - generic [ref=e311]:
+          - generic [ref=e312]: § 08 — Summary
+          - heading "Full Comparison" [level=2] [ref=e313]
+          - table [ref=e315]:
+            - rowgroup [ref=e316]:
+              - row "Property Standard FA1 FA2" [ref=e317]:
+                - columnheader "Property" [ref=e318]
+                - columnheader "Standard" [ref=e319]
+                - columnheader "FA1" [ref=e320]
+                - columnheader "FA2" [ref=e321]
+            - rowgroup [ref=e322]:
+              - row "Memory complexity O(N²) O(N) O(N)" [ref=e323]:
+                - cell "Memory complexity" [ref=e324]
+                - cell "O(N²)" [ref=e325]
+                - cell "O(N)" [ref=e326]
+                - cell "O(N)" [ref=e327]
+              - row "N×N matrix in HBM Yes No No" [ref=e328]:
+                - cell "N×N matrix in HBM" [ref=e329]
+                - cell "Yes" [ref=e330]
+                - cell "No" [ref=e331]
+                - cell "No" [ref=e332]
+              - row "Outer loop — K,V (Q reloads) Q (stays in SRAM)" [ref=e333]:
+                - cell "Outer loop" [ref=e334]
+                - cell "—" [ref=e335]
+                - cell "K,V (Q reloads)" [ref=e336]
+                - cell "Q (stays in SRAM)" [ref=e337]
+              - row "SM parallelism Batch × Heads Batch × Heads Batch × Heads × Q blocks" [ref=e338]:
+                - cell "SM parallelism" [ref=e339]
+                - cell "Batch × Heads" [ref=e340]
+                - cell "Batch × Heads" [ref=e341]
+                - cell "Batch × Heads × Q blocks" [ref=e342]
+              - row "Warp sync barriers — Required Eliminated" [ref=e343]:
+                - cell "Warp sync barriers" [ref=e344]
+                - cell "—" [ref=e345]
+                - cell "Required" [ref=e346]
+                - cell "Eliminated" [ref=e347]
+              - row "Causal masking Full matrix mask Tile-level Tile-level + skip" [ref=e348]:
+                - cell "Causal masking" [ref=e349]
+                - cell "Full matrix mask" [ref=e350]
+                - cell "Tile-level" [ref=e351]
+                - cell "Tile-level + skip" [ref=e352]
+              - row "Backward pass Load stored P Recompute P Recompute P (optimized)" [ref=e353]:
+                - cell "Backward pass" [ref=e354]
+                - cell "Load stored P" [ref=e355]
+                - cell "Recompute P" [ref=e356]
+                - cell "Recompute P (optimized)" [ref=e357]
+              - row "GPU utilization ~20% ~25–40% ~50–73%" [ref=e358]:
+                - cell "GPU utilization" [ref=e359]
+                - cell "~20%" [ref=e360]
+                - cell "~25–40%" [ref=e361]
+                - cell "~50–73%" [ref=e362]
+              - row "Exact result Yes Yes Yes" [ref=e363]:
+                - cell "Exact result" [ref=e364]
+                - cell "Yes" [ref=e365]
+                - cell "Yes" [ref=e366]
+                - cell "Yes" [ref=e367]
+              - row "Speedup vs standard 1× 2–4× ~9×" [ref=e368]:
+                - cell "Speedup vs standard" [ref=e369]
+                - cell "1×" [ref=e370]
+                - cell "2–4×" [ref=e371]
+                - cell "~9×" [ref=e372]
+        - generic [ref=e373]:
+          - generic [ref=e374]: § 09 — Takeaway
+          - heading "The Bigger Picture" [level=2] [ref=e375]
+          - paragraph [ref=e376]:
+            - text: FlashAttention is a masterclass in the difference between algorithmic complexity and practical performance. Standard attention, FA1, and FA2 all compute the
+            - strong [ref=e377]: exact same mathematical operation
+            - text: . The difference is entirely in how that computation maps onto hardware.
+          - paragraph [ref=e378]: "FA1's contribution was conceptual: prove that exact attention doesn't require storing N×N in memory. The online softmax trick made tiling possible. This unlocked long-context training that was previously impossible."
+          - paragraph [ref=e379]: "FA2's contribution was engineering: given that we're tiling, how do we make the GPU as efficient as possible? Flip the loop order to keep Q's state in SRAM. Launch more thread blocks to use all SMs. Split warps over Q rows to eliminate sync barriers. Three targeted fixes that doubled throughput."
+          - generic [ref=e380]:
+            - generic [ref=e381]: The Core Lesson
+            - paragraph [ref=e383]: Modern deep learning is memory-bandwidth bound, not compute-bound. The GPU has far more FLOPs available than the memory bus can feed. The algorithms that win are those that minimize HBM round trips and keep data in fast on-chip SRAM as long as possible. FlashAttention is the canonical example of this principle applied to the most expensive operation in a transformer.
+          - paragraph [ref=e384]: FA3 (2024) continues this thread — targeting Hopper architecture (H100) with asynchronous memory pipelines and FP8 support, pushing utilization even further. The algorithmic ideas remain the same; the hardware-aware optimization goes deeper.
+          - paragraph [ref=e385]:
+            - text: "If you want to go further: the original FA1 paper ("
+            - emphasis [ref=e386]: Dao et al., NeurIPS 2022
+            - text: ) and FA2 paper (
+            - emphasis [ref=e387]: Dao, 2023, arXiv:2307.08691
+            - text: ) are both readable and worth the time. The FA2 paper in particular is concise and the pseudocode maps directly to the explanation above.
+  - contentinfo [ref=e388]:
+    - generic [ref=e389]:
+      - paragraph [ref=e390]: © 2026 Bhavesh Gupta · built with React + Vite
+      - generic [ref=e391]:
+        - link "medium" [ref=e392] [cursor=pointer]:
+          - /url: https://medium.com/@bhaveshgupta3421
+        - link "github" [ref=e393] [cursor=pointer]:
+          - /url: https://github.com/

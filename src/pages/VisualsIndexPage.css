@@ -1,0 +1,120 @@
+.visuals-index {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 80px 40px;
+}
+
+.visuals-index__head {
+  margin-bottom: 56px;
+}
+
+.visuals-index__label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 18px;
+}
+
+.visuals-index__title {
+  font-family: var(--font-serif);
+  font-size: clamp(48px, 8vw, 96px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0 0 20px;
+  color: var(--text);
+}
+
+.visuals-index__lede {
+  font-size: 18px;
+  color: var(--text2);
+  max-width: 580px;
+  margin: 0;
+}
+
+.visuals-index__grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 760px) {
+  .visuals-index__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.visual-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 28px 30px;
+  color: var(--text);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.visual-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(74, 222, 170, 0.12), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.visual-card:hover {
+  border-color: var(--accent3);
+  transform: translateY(-2px);
+  color: var(--text);
+}
+
+.visual-card:hover::before {
+  opacity: 1;
+}
+
+.visual-card__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--accent3);
+  margin-bottom: 14px;
+}
+
+.visual-card__title {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--text);
+  margin: 0 0 14px;
+  letter-spacing: -0.01em;
+}
+
+.visual-card__desc {
+  color: var(--text2);
+  font-size: 15px;
+  margin: 0 0 24px;
+  line-height: 1.6;
+  flex: 1;
+}
+
+.visual-card__cta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent3);
+}
+
+@media (max-width: 640px) {
+  .visuals-index {
+    padding: 60px 24px;
+  }
+}

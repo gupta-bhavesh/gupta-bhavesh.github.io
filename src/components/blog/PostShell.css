@@ -1,0 +1,15 @@
+.post-shell {
+  width: 100%;
+}
+
+.post-shell__container {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+@media (max-width: 640px) {
+  .post-shell__container {
+    padding: 0 24px;
+  }
+}
