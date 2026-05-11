@@ -14,3 +14,6 @@ dist-ssr
 out/
 .claude
 scripts/
+
+# Playwright MCP session artifacts (snapshots, console logs, temp screenshots)
+.playwright-mcp/
