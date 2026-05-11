@@ -9,3 +9,8 @@ dist-ssr
 .idea
 .vscode/*
 !.vscode/extensions.json
+
+# fanout pipeline drafts (gitignored — only public/posts/<slug>/medium/ ships with site)
+out/
+.claude
+scripts/

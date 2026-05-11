@@ -832,9 +832,9 @@ To recover weight i in sub-block j:
         <Section label="§ 09 — MXFP8" title="Microscaling FP8: The Open Standard">
           <p>
             MXFP8 is the format that finally took FP8 from "interesting research" to "production
-            inference." It was standardized by Microsoft, AMD, Intel, and Nvidia together
-            through the Open Compute Project — so the same format runs natively on H100, MI300,
-            Gaudi 3, and Blackwell.
+            inference." It was standardized by AMD, Arm, Intel, Meta, Microsoft, Nvidia, and
+            Qualcomm together through the Open Compute Project (OCP MX v1.0, September 2023) —
+            so the same format runs natively on H100, MI300, Gaudi 3, and Blackwell.
           </p>
 
           <h3>The format</h3>

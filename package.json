@@ -8,7 +8,10 @@
     "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview",
     "serve": "vite preview --host",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "fanout:capture": "node scripts/capture-post.mjs",
+    "fanout:hero": "node scripts/gen-hero.mjs",
+    "fanout:qc": "node scripts/qc.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -20,6 +23,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "playwright": "^1.48.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   }
