@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "serve": "vite preview --host",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "fanout:capture": "node scripts/capture-post.mjs",
-    "fanout:hero": "node scripts/gen-hero.mjs",
+    "fanout:sync-images": "node scripts/sync-images.mjs",
+    "fanout:render": "node scripts/render-medium.mjs",
     "fanout:qc": "node scripts/qc.mjs"
   },
   "dependencies": {
@@ -23,7 +23,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
-    "playwright": "^1.48.0",
+    "marked": "^18.0.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   }
