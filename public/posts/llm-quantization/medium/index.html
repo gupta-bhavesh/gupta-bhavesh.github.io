@@ -82,12 +82,8 @@ E8M0           ─ │ 8 exp │ ─                                 │  8 bits
 <p>That last row, <strong>E8M0</strong>, is unusual: just an exponent, no sign, no mantissa. It can only represent powers of 2. It shows up later as the scale format in MXFP8.</p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/float-anatomy.png" alt="Bit layout of FP32, FP16, BF16, FP8, FP4, and E8M0 — sign, exponent, and mantissa shown side by side"></p>
 <p><em>Every float is sign + exponent + mantissa. Each format splits the same bit budget differently.</em></p>
-<blockquote>
 <p><strong>One sentence to remember:</strong> exponent bits buy range, mantissa bits buy precision. Every format picks a different split of the same bit budget.</p>
-</blockquote>
-<blockquote>
 <p>🔗 <strong>Live version:</strong> drag a value and watch each format round it differently — <a href="https://gupta-bhavesh.github.io/visuals/float-anatomy">gupta-bhavesh.github.io/visuals/float-anatomy</a></p>
-</blockquote>
 <h2>3. The core mechanic: block, slot, scale, dequantize</h2>
 <p>Every quantization scheme — old, new, integer, float — boils down to four ideas stacked on each other.</p>
 <h3>A weight is one number</h3>
@@ -99,10 +95,8 @@ E8M0           ─ │ 8 exp │ ─                                 │  8 bits
 <p>With N bits per weight, you have 2^N possible slots. At 4 bits that&#39;s 16 slots. At 2 bits that&#39;s 4 slots. At 8 bits that&#39;s 256.</p>
 <h3>The scale is the step size between slots</h3>
 <p>The scale is one float stored alongside each block that says: &quot;to recover an approximate weight from a stored slot, multiply by this.&quot;</p>
-<blockquote>
 <p><strong>stored_int = round(original_float / scale)</strong><br />
 <strong>recovered_float = stored_int × scale</strong></p>
-</blockquote>
 <p>The error between original and recovered is the quantization error. It&#39;s bounded by half a step — at most <code>scale / 2</code> per weight.</p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/block-slot-scale.png" alt="Four weights snapping to the nearest slot on a 4-bit number line — scale equals the step size between slots"></p>
 <p><em>4-bit quantization in one picture: snap each weight to its nearest slot. Scale = the gap between slots.</em></p>
@@ -128,9 +122,7 @@ scale = 1.23 / 7 = 0.1757
  7 × 0.1757 =  1.2299     # was 1.23, error = 0.0001
 </code></pre>
 <p>Every other format on this page — Q4_K_M, IQ4_XS, MXFP8, NVFP4 — is built from these same four ideas, just with different choices for slot spacing, block size, scale precision, and how the scales themselves are stored.</p>
-<blockquote>
 <p>🔗 <strong>Live playground:</strong> drag a weight, change the bit depth, watch the error — <a href="https://gupta-bhavesh.github.io/visuals/quantization-playground">gupta-bhavesh.github.io/visuals/quantization-playground</a></p>
-</blockquote>
 <h2>4. Symmetric vs asymmetric: do you need to store the min?</h2>
 <p>In symmetric quantization the formula is <code>float = int × scale</code>. Range is forced to <code>[-max, +max]</code>. Only the scale is stored — no &quot;min.&quot;</p>
 <p>In asymmetric quantization you store both a scale and a zero-point: <code>float = (int − zero_point) × scale</code>.</p>
@@ -212,9 +204,7 @@ _M                    # Medium — sensitive layers upgraded to Q6_K
 <p><strong>Compute quantization (FP8, MXFP8, NVFP4):</strong> weights are stored compressed AND the tensor cores natively multiply in that reduced precision. No dequantize step. Faster on two axes: less data to move AND cheaper math per multiply. Requires hardware that physically supports the format.</p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/storage-vs-compute.png" alt="Storage quantization dequantizes weights to FP16 before the matmul; compute quantization runs the matmul directly in low precision"></p>
 <p><em>Storage quant saves memory only. Compute quant saves memory <em>and</em> compute — but needs hardware that natively does the low-precision math.</em></p>
-<blockquote>
 <p><strong>The lesson:</strong> GGUF saves you memory. MXFP8 / NVFP4 save you memory AND compute. But compute quantization is locked to whatever silicon happens to support that exact format — a hardware support problem more than a math problem.</p>
-</blockquote>
 <h2>9. MXFP8: microscaling FP8</h2>
 <p>MXFP8 is the format that finally took FP8 from &quot;interesting research&quot; to &quot;production inference.&quot; It was standardized by AMD, Arm, Intel, Meta, Microsoft, Nvidia, and Qualcomm together through the Open Compute Project (OCP MX v1.0, September 2023) — so the same format runs natively on H100, MI300, Gaudi 3, and Blackwell.</p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-4.png" alt="Data table 4"></p>
@@ -264,9 +254,7 @@ scale = 15.0   # stored as E4M3 FP8
 <p>The scale multiply is <strong>not</strong> a single step at the end of the entire matrix multiply. It happens per block, interleaved into the accumulation. The 16:1 ratio of FP4 multiplies to scale applications is what keeps the whole thing fast.</p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/mxfp8-vs-nvfp4.png" alt="MXFP8 stores 32 FP8 weights per block with a power-of-2 scale; NVFP4 stores 16 FP4 weights per block with a full FP8 scale, and the 16 FP4 values cluster near zero"></p>
 <p><em>Same idea, different bit budget: MXFP8 has 32 FP8 weights and a cheap power-of-2 scale; NVFP4 has 16 FP4 weights and a real FP8 scale.</em></p>
-<blockquote>
 <p>🔗 <strong>Live comparison:</strong> edit a block of weights and watch both formats round it — <a href="https://gupta-bhavesh.github.io/visuals/mx-vs-nv">gupta-bhavesh.github.io/visuals/mx-vs-nv</a></p>
-</blockquote>
 <h2>11. Q8_0 vs MXFP8: a direct side-by-side</h2>
 <p>Both formats are nominally &quot;8-bit weights with one scale per 32.&quot; The difference is the entire reason MXFP8 is faster.</p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-6.png" alt="Data table 6"></p>
@@ -308,19 +296,12 @@ python convert_hf_to_gguf.py /path/to/llama-3-70b/ \
 <h2>16. Choosing: which quant should you pick?</h2>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-9.png" alt="Data table 9"></p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-10.png" alt="Data table 10"></p>
-<blockquote>
 <p><strong>The default:</strong> Q4_K_M is the safe default. Go lower only when forced by VRAM. Go higher when doing precision-sensitive work.</p>
-</blockquote>
 <h2>17. The bigger picture</h2>
 <p>Every quantization scheme on this page is a different answer to the same question: <em>given a fixed bit budget per weight, where do you spend the bits?</em></p>
 <p>Legacy formats (Q4_0) spent them naively: one FP16 scale per block, evenly spaced slots, every weight treated equally. K-quants spent some bits on a hierarchy of scales. IQ-quants spent some on importance metadata. Non-linear codebooks spent some on slot positions matched to the actual weight distribution. MXFP8 and NVFP4 spent some on having a real float representation that the hardware can compute on directly. Each generation has been a slightly more sophisticated answer to &quot;where does precision actually matter?&quot;</p>
 <p>The pattern that runs through all of them is the same four-line recipe: chop weights into blocks, find a scale per block, snap each weight to the nearest available slot, store the slot and the scale.</p>
-<blockquote>
 <p><strong>The takeaway:</strong> quantization is not magic and it&#39;s not lossy compression in the JPEG sense. It&#39;s the deliberate trading of per-weight precision for total bandwidth, made survivable by the fact that LLM outputs depend on millions of weighted sums where random errors cancel. Once the block/scale/slot pattern clicks, every cryptic filename tells you exactly what&#39;s inside.</p>
-</blockquote>
-<hr />
-<p><em>Originally published at <a href="https://gupta-bhavesh.github.io/blog/llm-quantization">gupta-bhavesh.github.io/blog/llm-quantization</a> — the interactive versions of every visual in this post live there.</em></p>
-
 </article>
 </body>
 </html>
