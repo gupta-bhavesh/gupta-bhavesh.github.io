@@ -68,6 +68,7 @@
 </ul>
 <p>The reason it works at all is that LLM weights are surprisingly tolerant of noise. They are billions of small numbers, mostly clustered near zero, and the network&#39;s output depends on a weighted sum across many of them. Small random errors mostly cancel.</p>
 <p>But &quot;4 bits&quot; hides a lot of design choices. There are many different ways to spend those 4 bits — integer vs float, symmetric vs asymmetric, one scale per block of 32 vs scales stacked inside scales, importance-weighted vs uniform, stored vs natively computed. This post walks through each of them.</p>
+<p><strong>The single question that runs through the whole field:</strong> <em>given a fixed bit budget per weight, where do you spend the bits?</em> Every format on this page — Q4_K_M, IQ4_XS, MXFP8, NVFP4 — is a different answer to that one question. Keep that thread in mind; the rest is just variations on a theme.</p>
 <h2>2. Floats: what you&#39;re actually quantizing</h2>
 <p>Before quantization makes sense, you need to remember what a float is. Every floating point number has three parts:</p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-1.png" alt="Three parts of a float: sign, exponent (range), mantissa (precision)"></p>
@@ -77,6 +78,7 @@
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/float-anatomy.png" alt="Bit layout of FP32, FP16, BF16, FP8, FP4, and E8M0 — sign, exponent, and mantissa shown side by side"></p>
 <p><em>Every float is sign + exponent + mantissa. Each format splits the same bit budget differently.</em></p>
 <p><strong>One sentence to remember:</strong> exponent bits buy range, mantissa bits buy precision. Every format picks a different split of the same bit budget.</p>
+<p>That range-vs-precision tradeoff is why <strong>BF16 dominates training</strong> while FP16 is mostly an inference format. Training gradients span 10+ orders of magnitude, and FP16&#39;s narrow 5-bit exponent overflows on the high end and underflows to zero on the low end. BF16&#39;s 8-bit exponent (same as FP32) handles the full range — at the cost of mantissa precision the optimizer doesn&#39;t really need.</p>
 <p>🔗 <strong>Live version:</strong> drag a value and watch each format round it differently — <a href="https://gupta-bhavesh.github.io/visuals/float-anatomy">gupta-bhavesh.github.io/visuals/float-anatomy</a></p>
 <h2>3. The core mechanic: block, slot, scale, dequantize</h2>
 <p>Every quantization scheme — old, new, integer, float — boils down to four ideas stacked on each other.</p>
@@ -137,6 +139,7 @@
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/storage-vs-compute.png" alt="Storage quantization dequantizes weights to FP16 before the matmul; compute quantization runs the matmul directly in low precision"></p>
 <p><em>Storage quant saves memory only. Compute quant saves memory <em>and</em> compute — but needs hardware that natively does the low-precision math.</em></p>
 <p><strong>The lesson:</strong> GGUF saves you memory. MXFP8 / NVFP4 save you memory AND compute. But compute quantization is locked to whatever silicon happens to support that exact format — a hardware support problem more than a math problem.</p>
+<p><strong>Apple Silicon changes the calculation slightly.</strong> Unified memory means the CPU and GPU share one physical bandwidth pool — there&#39;s no separate VRAM to transfer weights into. Storage quantization wins are still real (less bandwidth consumed per matmul), but the &quot;fit it in VRAM&quot; framing doesn&#39;t apply. An M-series Mac can run a Q4_K_M 70B because the model just sits in regular RAM that the GPU can read directly, no copy step. CPU and GPU contend for that shared bandwidth, so quantization gains show up as throughput rather than as a binary fits/doesn&#39;t-fit.</p>
 <h2>9. MXFP8: microscaling FP8</h2>
 <p>MXFP8 is the format that finally took FP8 from &quot;interesting research&quot; to &quot;production inference.&quot; It was standardized by AMD, Arm, Intel, Meta, Microsoft, Nvidia, and Qualcomm together through the Open Compute Project (OCP MX v1.0, September 2023) — so the same format runs natively on H100, MI300, Gaudi 3, and Blackwell.</p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-4.png" alt="MXFP8 format fields: FP8 (E4M3) weights, 32-weight blocks, E8M0 power-of-2 scale"></p>

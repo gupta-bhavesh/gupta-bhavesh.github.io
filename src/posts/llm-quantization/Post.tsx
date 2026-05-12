@@ -98,6 +98,13 @@ export default function LLMQuantizationPost() {
             per block of 32 vs hierarchical scales of scales, importance-weighted vs uniform,
             stored vs natively computed. This post unpacks every one of them.
           </p>
+
+          <p>
+            <strong>The single question that runs through the whole field:</strong> <em>given a
+            fixed bit budget per weight, where do you spend the bits?</em> Every format on this
+            page — Q4_K_M, IQ4_XS, MXFP8, NVFP4 — is a different answer to that one question.
+            Keep that thread in mind; the rest is just variations on a theme.
+          </p>
         </Section>
 
         <Section label="§ 02 — Floats" title="What You're Actually Quantizing">
@@ -158,6 +165,14 @@ E8M0           ─ │ 8 exp │ ─                                        │ 
               precision, FP4 has both range and precision compressed into almost nothing.
             </p>
           </Callout>
+
+          <p>
+            That range-vs-precision tradeoff is why <strong>BF16 dominates training</strong> while
+            FP16 is mostly an inference format. Training gradients span 10+ orders of magnitude,
+            and FP16's narrow 5-bit exponent overflows on the high end and underflows to zero on
+            the low end. BF16's 8-bit exponent (same as FP32) handles the full range — at the
+            cost of mantissa precision the optimizer doesn't really need.
+          </p>
 
           <VisualEmbed
             to="/visuals/float-anatomy"
@@ -827,6 +842,16 @@ To recover weight i in sub-block j:
               format — a hardware support problem more than a math problem.
             </p>
           </Callout>
+
+          <p>
+            <strong>Apple Silicon changes the calculation slightly.</strong> Unified memory
+            means the CPU and GPU share one physical bandwidth pool — there's no separate VRAM
+            to transfer weights into. Storage quantization wins are still real (less bandwidth
+            consumed per matmul), but the "fit it in VRAM" framing doesn't apply. An M-series
+            Mac can run a Q4_K_M 70B because the model just sits in regular RAM that the GPU
+            can read directly, no copy step. The CPU and GPU contend for that bandwidth, so
+            quantization gains show up as throughput rather than as a binary fits/doesn't-fit.
+          </p>
         </Section>
 
         <Section label="§ 09 — MXFP8" title="Microscaling FP8: The Open Standard">
