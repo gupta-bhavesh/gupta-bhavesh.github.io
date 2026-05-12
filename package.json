@@ -10,6 +10,8 @@
     "serve": "vite preview --host",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "fanout:sync-images": "node scripts/sync-images.mjs",
+    "fanout:render-snippets": "node scripts/snippets-to-png.mjs",
+    "fanout:swap-snippets": "node scripts/swap-snippets-to-images.mjs",
     "fanout:qc": "node scripts/qc.mjs"
   },
   "dependencies": {
@@ -22,6 +24,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "puppeteer": "^24.43.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   }
