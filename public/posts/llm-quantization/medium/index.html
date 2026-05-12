@@ -70,9 +70,9 @@
 <p>But &quot;4 bits&quot; hides a lot of design choices. There are many different ways to spend those 4 bits — integer vs float, symmetric vs asymmetric, one scale per block of 32 vs scales stacked inside scales, importance-weighted vs uniform, stored vs natively computed. This post walks through each of them.</p>
 <h2>2. Floats: what you&#39;re actually quantizing</h2>
 <p>Before quantization makes sense, you need to remember what a float is. Every floating point number has three parts:</p>
-<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-1.png" alt="Data table 1"></p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-1.png" alt="Three parts of a float: sign, exponent (range), mantissa (precision)"></p>
 <p>The shorthand <code>EnMm</code> means n exponent bits and m mantissa bits. So <strong>FP32</strong> is E8M23, <strong>FP16</strong> is E5M10, <strong>BF16</strong> is E8M7 (same range as FP32 but less precision), <strong>FP8 (E4M3)</strong> is the most common 8-bit float, and <strong>FP4 (E2M1)</strong> is the new 4-bit one.</p>
-<p>https://gist.github.com/gupta-bhavesh/7af8cf56ea586fe2353ea15a7d043b07</p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/code-01.png" alt="Bit layouts of FP32, FP16, BF16, FP8, FP4, and the E8M0 scale format"></p>
 <p>That last row, <strong>E8M0</strong>, is unusual: just an exponent, no sign, no mantissa. It can only represent powers of 2. It shows up later as the scale format in MXFP8.</p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/float-anatomy.png" alt="Bit layout of FP32, FP16, BF16, FP8, FP4, and E8M0 — sign, exponent, and mantissa shown side by side"></p>
 <p><em>Every float is sign + exponent + mantissa. Each format splits the same bit budget differently.</em></p>
@@ -96,7 +96,7 @@
 <p><em>4-bit quantization in one picture: snap each weight to its nearest slot. Scale = the gap between slots.</em></p>
 <h3>A worked example</h3>
 <p>Suppose you have a block of 4 weights at 4-bit precision:</p>
-<p>https://gist.github.com/gupta-bhavesh/2f2b0196d4be957793130140dcda0b45</p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/code-02.png" alt="Worked example: quantizing a block of 4 weights at 4-bit precision"></p>
 <p>Every other format on this page — Q4_K_M, IQ4_XS, MXFP8, NVFP4 — is built from these same four ideas, just with different choices for slot spacing, block size, scale precision, and how the scales themselves are stored.</p>
 <p>🔗 <strong>Live playground:</strong> drag a weight, change the bit depth, watch the error — <a href="https://gupta-bhavesh.github.io/visuals/quantization-playground">gupta-bhavesh.github.io/visuals/quantization-playground</a></p>
 <h2>4. Symmetric vs asymmetric: do you need to store the min?</h2>
@@ -106,27 +106,27 @@
 <p>The exception is activations — values flowing between layers during inference. After a ReLU everything is ≥ 0, so a symmetric range would waste the entire negative half. Activations get asymmetric quantization. This matters when people quantize the KV cache at runtime — that&#39;s activation-derived state, and <code>llama.cpp -ctv q4_1</code> uses asymmetric Q4_1 specifically because of it.</p>
 <h2>5. K-quants: scales stored inside scales</h2>
 <p>Storing a full FP16 scale for every 32 weights is wasteful — 16 bits of scale for 128 bits of weight data is a 12.5% overhead just on the scales. K-quants fix this by quantizing the scales themselves, then grouping multiple sub-blocks under one shared outer scale.</p>
-<p>https://gist.github.com/gupta-bhavesh/4cea8e8a34cee06a5ab33ffdd220720f</p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/code-03.png" alt="K-quant super-block hierarchy: 256 weights, FP16 super-scale, 6-bit sub-scales"></p>
 <p>This hierarchy is the entire reason K-quants outperform legacy Q4_0 at similar bit depth. Two levels of scale give you per-sub-block precision while only paying for one FP16 number per 256 weights.</p>
 <h2>6. The GGUF zoo: every Q-format decoded</h2>
 <p>GGUF is the file format used by llama.cpp. Inside it, the quantization scheme for each tensor is one of about twenty named variants. The names look random at first — Q4_K_M, IQ3_XXS, IQ4_NL — but every piece of the name actually means something.</p>
 <h3>The naming grammar</h3>
-<p>https://gist.github.com/gupta-bhavesh/6f1fea4f6a7e6ba424d596f4ff5a53c3</p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/code-04.png" alt="GGUF naming grammar — family, bit depth, scheme, sub-variant tokens explained"></p>
 <h3>What each token means</h3>
-<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-2.png" alt="Data table 2"></p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-2.png" alt="GGUF filename tokens decoded: Q, IQ, _0, _1, _K, _S, _M, _L, _XS, _NL"></p>
 <h3>The full table</h3>
 <p>Quick read: lower <strong>bpw</strong> (bits per weight) means smaller file and more quality loss. <strong>Q4_K_M is the standard pick</strong> — everything else is a tradeoff against it.</p>
-<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-3.png" alt="Data table 3"></p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-3.png" alt="Every GGUF format you will see in the wild: bpw, block size, scale storage, quality"></p>
 <h3>Reading a real filename</h3>
 <p><code>llama-3-70B-Instruct-Q5_K_M.gguf</code>:</p>
-<p>https://gist.github.com/gupta-bhavesh/efda20c2e9033907b34a501acdda6e22</p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/code-05.png" alt="Decoding the filename llama-3-70B-Instruct-Q5_K_M.gguf token by token"></p>
 <p>From the name alone you know: ~5.6 bpw effective, 32-weight blocks, 6-bit sub-block scales under FP16 super-scales, attention output and FFN down-proj layers run at Q6_K. Roughly 49 GB on disk for the full 70B.</p>
 <h2>7. IQ-quants: importance matrices</h2>
 <p>Standard Q-quants treat every weight identically. Each one gets snapped to its nearest slot purely on the basis of its numeric value. IQ-quants break that assumption.</p>
 <p>The insight: <strong>not every weight matters equally to the model&#39;s output</strong>. Some weights, when perturbed by 0.01, change the final logits dramatically. Others can be perturbed by 0.1 with almost no measurable effect.</p>
 <h3>How importance is measured</h3>
 <p>Before quantization, you run a small calibration dataset (a few hundred chunks of text) through the model in FP16. For each weight, you measure how sensitive the output is to that weight. The result is an importance matrix (imatrix).</p>
-<p>https://gist.github.com/gupta-bhavesh/a8bda0704e76e29aacdd1e3ba1e8413c</p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/code-06.png" alt="llama.cpp commands to generate an importance matrix and quantize with it"></p>
 <h3>The non-linear codebook (NL)</h3>
 <p>IQ4_NL adds another twist on top: the slot positions themselves are not evenly spaced. Instead of dividing the range into 16 equal steps, IQ4_NL uses a fixed lookup table of 16 carefully chosen values, clustered more densely near zero (where most weights actually live).</p>
 <p>This is the same idea as the <strong>NF4</strong> format used by BitsAndBytes for QLoRA fine-tuning — slot positions placed at quantiles of a normal distribution.</p>
@@ -139,30 +139,30 @@
 <p><strong>The lesson:</strong> GGUF saves you memory. MXFP8 / NVFP4 save you memory AND compute. But compute quantization is locked to whatever silicon happens to support that exact format — a hardware support problem more than a math problem.</p>
 <h2>9. MXFP8: microscaling FP8</h2>
 <p>MXFP8 is the format that finally took FP8 from &quot;interesting research&quot; to &quot;production inference.&quot; It was standardized by AMD, Arm, Intel, Meta, Microsoft, Nvidia, and Qualcomm together through the Open Compute Project (OCP MX v1.0, September 2023) — so the same format runs natively on H100, MI300, Gaudi 3, and Blackwell.</p>
-<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-4.png" alt="Data table 4"></p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-4.png" alt="MXFP8 format fields: FP8 (E4M3) weights, 32-weight blocks, E8M0 power-of-2 scale"></p>
 <h3>Why E8M0 for the scale?</h3>
 <p>E8M0 has only 256 possible values — all powers of 2. That sounds restrictive, but it makes the hardware extremely fast: <strong>multiplying by a power of 2 is a bit shift</strong>, not a real float multiply. The tensor core can apply the scale to a partial dot-product result with just a shifter, costing essentially nothing.</p>
 <h3>A worked MXFP8 example</h3>
-<p>https://gist.github.com/gupta-bhavesh/b62e7c96576cc5a2fece87831615b72c</p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/code-07.png" alt="MXFP8 worked example: power-of-2 scale, FP8 weights, bit-shift at inference"></p>
 <h2>10. NVFP4: native 4-bit floats on Blackwell</h2>
 <p>NVFP4 is Nvidia&#39;s proprietary 4-bit float format, introduced with Blackwell (RTX 50, GB200).</p>
-<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-5.png" alt="Data table 5"></p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-5.png" alt="NVFP4 format fields: FP4 (E2M1) weights, 16-weight blocks, FP8 (E4M3) scale"></p>
 <p>The 16 values of FP4 are not evenly spaced — the floating point format clusters them around small magnitudes: <code>0, ±0.5, ±1, ±1.5, ±2, ±3, ±4, ±6</code>.</p>
 <h3>Why the scale is FP8, not E8M0</h3>
 <p>With only 16 slots to work with, getting the scale exactly right is critical. A power-of-2 scale would force the entire block to snap to whichever power of 2 is closest, potentially wasting half the precious slots. A full FP8 scale can be tuned freely.</p>
 <h3>A worked NVFP4 example</h3>
-<p>https://gist.github.com/gupta-bhavesh/fb02e0da06d474a92987248688b11727</p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/code-08.png" alt="NVFP4 worked example: FP8 scale, FP4 slots, per-block scale multiply"></p>
 <p>The scale multiply is <strong>not</strong> a single step at the end of the entire matrix multiply. It happens per block, interleaved into the accumulation. The 16:1 ratio of FP4 multiplies to scale applications is what keeps the whole thing fast.</p>
 <p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/mxfp8-vs-nvfp4.png" alt="MXFP8 stores 32 FP8 weights per block with a power-of-2 scale; NVFP4 stores 16 FP4 weights per block with a full FP8 scale, and the 16 FP4 values cluster near zero"></p>
 <p><em>Same idea, different bit budget: MXFP8 has 32 FP8 weights and a cheap power-of-2 scale; NVFP4 has 16 FP4 weights and a real FP8 scale.</em></p>
 <p>🔗 <strong>Live comparison:</strong> edit a block of weights and watch both formats round it — <a href="https://gupta-bhavesh.github.io/visuals/mx-vs-nv">gupta-bhavesh.github.io/visuals/mx-vs-nv</a></p>
 <h2>11. Q8_0 vs MXFP8: a direct side-by-side</h2>
 <p>Both formats are nominally &quot;8-bit weights with one scale per 32.&quot; The difference is the entire reason MXFP8 is faster.</p>
-<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-6.png" alt="Data table 6"></p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-6.png" alt="Q8_0 vs MXFP8 side-by-side: integer-with-FP16-scale vs native-FP8 with power-of-2 scale"></p>
 <h2>12. Why each format needs new silicon</h2>
 <p>A natural question: if a GPU can do FP8 math, why can&#39;t it do FP4?</p>
 <p>A tensor core is a small piece of silicon hardwired to do exactly one operation: multiply two matrices of a specific format and accumulate the result. It&#39;s not flexible software — it&#39;s physical circuits etched into the chip, sized for specific bit widths and specific exponent/mantissa splits.</p>
-<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-7.png" alt="Data table 7"></p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-7.png" alt="Tensor core generations: Volta FP16, Hopper FP8, Blackwell FP4"></p>
 <p>FP8 hardware cannot ingest 4-bit inputs at all — its data ports literally expect 8-bit values. Each new format requires new silicon. Each generation Nvidia <em>adds</em> tensor core blocks to the chip — the FP16 tensor cores from Volta are still in Blackwell, just sitting alongside newer FP8 and FP4 cores.</p>
 <h2>13. Beyond GGUF: GPTQ, AWQ, EXL2, NF4</h2>
 <p>llama.cpp&#39;s GGUF formats are designed for portability. The other major quantization families take different design tradeoffs, mostly aimed at GPU-only inference or fine-tuning.</p>
@@ -172,15 +172,15 @@
 <p><strong>BitsAndBytes / NF4</strong> is &quot;NormalFloat 4-bit&quot; — slot positions placed at quantiles of a standard normal distribution. Primarily a <em>training</em> format for QLoRA fine-tuning.</p>
 <h2>14. Where in the model: what gets quantized</h2>
 <p>&quot;Quantize the model&quot; is a simplification. A transformer has many tensor types and they&#39;re not equally tolerant of low-precision storage.</p>
-<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-8.png" alt="Data table 8"></p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-8.png" alt="Per-tensor quantization policy across embeddings, attention, FFN, layer norms, KV cache"></p>
 <p>The &quot;_M&quot; in K-quants exists exactly to encode this layer-by-layer policy.</p>
 <h2>15. llama.cpp: the commands that actually do it</h2>
 <p>If you just want to download a pre-quantized model from Hugging Face, skip this section. The commands below are for converting and quantizing a model yourself with llama.cpp.</p>
-<p>https://gist.github.com/gupta-bhavesh/40c9ba05821091af7d0adfd0a45849bb</p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/code-09.png" alt="End-to-end llama.cpp pipeline: convert, imatrix, quantize, serve"></p>
 <p><code>-ngl</code> controls CPU/GPU split. With <code>-ngl 0</code> everything runs on CPU; with <code>-ngl 99</code> the entire model goes to GPU if it fits. Partial offload — say <code>-ngl 32</code> on a 60-layer model — runs the bottom 32 layers on GPU and the rest on CPU.</p>
 <h2>16. Choosing: which quant should you pick?</h2>
-<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-9.png" alt="Data table 9"></p>
-<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-10.png" alt="Data table 10"></p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-9.png" alt="Recommended quant setup by VRAM budget, from 8 GB to 80 GB"></p>
+<p><img src="https://gupta-bhavesh.github.io/posts/llm-quantization/medium/table-10.png" alt="Minimum quant by task: chat, writing, code, math, embeddings, tool use"></p>
 <p><strong>The default:</strong> Q4_K_M is the safe default. Go lower only when forced by VRAM. Go higher when doing precision-sensitive work.</p>
 <h2>17. The bigger picture</h2>
 <p>Every quantization scheme on this page is a different answer to the same question: <em>given a fixed bit budget per weight, where do you spend the bits?</em></p>
